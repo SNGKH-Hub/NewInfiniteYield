@@ -1,14 +1,3 @@
---[[
-    NexusUI — Roblox Executor UI Library
-    A lightweight, modular UI library for building executor interfaces.
-
-    USAGE:
-        local UI = loadstring(game:HttpGet("..."))()
-        local Window = UI:CreateWindow({ Title = "MyScript", Subtitle = "v1.0" })
-        local Tab = Window:CreateTab({ Name = "Main", Icon = "rbxassetid://..." })
-        Tab:CreateButton({ Name = "Click Me", Callback = function() print("Clicked!") end })
-]]
-
 local NexusUI = {}
 NexusUI.__index = NexusUI
 
