@@ -170,16 +170,6 @@ function SNUI:CreateWindow(config)
     })
 
     -- Accent left bar
-    New("Frame", {
-        Size             = UDim2.new(0, 3, 0, 30),
-        Position         = UDim2.new(0, 14, 0.5, -15),
-        BackgroundColor3 = T.Accent,
-        BorderSizePixel  = 0,
-        ZIndex           = 4,
-        Parent           = Topbar,
-    })
-    Corner(_, 4) -- note: sets on last created
-
     local accentBar = New("Frame", {
         Size             = UDim2.new(0, 3, 0, 30),
         Position         = UDim2.new(0, 14, 0.5, -15),
@@ -313,33 +303,142 @@ function SNUI:CreateWindow(config)
         Parent                = Content,
     })
 
+    -- ── Floating "Open UI" pill button (shown when window is hidden) ─────────
+    local OpenPill = New("TextButton", {
+        Name             = "OpenPill",
+        Size             = UDim2.new(0, 110, 0, 32),
+        Position         = UDim2.new(0.5, -55, 0, 18),
+        BackgroundColor3 = T.Accent,
+        BorderSizePixel  = 0,
+        Text             = "",
+        AutoButtonColor  = false,
+        Visible          = false,
+        ZIndex           = 50,
+        Parent           = SG,
+    })
+    Corner(OpenPill, 16)
+    Stroke(OpenPill, T.AccentHover, 1.5, 0.2)
+
+    -- Glow behind pill
+    local PillGlow = New("Frame", {
+        Size                  = UDim2.new(1, 16, 1, 14),
+        Position              = UDim2.new(0, -8, 0, -7),
+        BackgroundColor3      = T.Accent,
+        BackgroundTransparency= 0.72,
+        BorderSizePixel       = 0,
+        ZIndex                = 49,
+        Parent                = OpenPill,
+    })
+    Corner(PillGlow, 20)
+
+    -- Triangle icon
+    New("TextLabel", {
+        Size              = UDim2.new(0, 22, 1, 0),
+        Position          = UDim2.new(0, 10, 0, 0),
+        BackgroundTransparency = 1,
+        Text              = "▲",
+        Font              = Enum.Font.GothamBold,
+        TextSize          = 11,
+        TextColor3        = T.White,
+        ZIndex            = 51,
+        Parent            = OpenPill,
+    })
+
+    -- "Open UI" label
+    New("TextLabel", {
+        Size              = UDim2.new(1, -32, 1, 0),
+        Position          = UDim2.new(0, 30, 0, 0),
+        BackgroundTransparency = 1,
+        Text              = "Open UI",
+        Font              = Enum.Font.GothamSemibold,
+        TextSize          = 13,
+        TextColor3        = T.White,
+        TextXAlignment    = Enum.TextXAlignment.Left,
+        ZIndex            = 51,
+        Parent            = OpenPill,
+    })
+
+    -- Pill is draggable too
+    MakeDraggable(OpenPill, OpenPill)
+
+    -- Hover glow pulse on pill
+    OpenPill.MouseEnter:Connect(function()
+        Tween(OpenPill, {BackgroundColor3 = T.AccentHover}, 0.15)
+        Tween(PillGlow, {BackgroundTransparency = 0.55}, 0.15)
+    end)
+    OpenPill.MouseLeave:Connect(function()
+        Tween(OpenPill, {BackgroundColor3 = T.Accent}, 0.15)
+        Tween(PillGlow, {BackgroundTransparency = 0.72}, 0.15)
+    end)
+
     -- ── Topbar button hover/logic ─────────────────────────────────────────────
+    local windowHidden = false
+    local savedPos     = Main.Position
+
+    local function HideWindow()
+        if windowHidden then return end
+        windowHidden = true
+        savedPos = Main.Position
+        -- Scroll up animation: slide to above screen + shrink height
+        local targetY = Main.Position.Y.Offset - 440
+        Tween(Main,   {Position = UDim2.new(Main.Position.X.Scale, Main.Position.X.Offset, 0, targetY),
+                       Size     = UDim2.new(0, 578, 0, 0)},
+              0.38, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        Tween(Shadow, {BackgroundTransparency = 1}, 0.22)
+        task.delay(0.32, function()
+            Main.Visible   = false
+            Shadow.Visible = false
+            OpenPill.Visible = true
+            -- animate pill in
+            OpenPill.Size = UDim2.new(0, 0, 0, 32)
+            OpenPill.BackgroundTransparency = 1
+            Tween(OpenPill, {Size = UDim2.new(0, 110, 0, 32), BackgroundTransparency = 0}, 0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        end)
+    end
+
+    local function ShowWindow()
+        if not windowHidden then return end
+        windowHidden = false
+        -- Hide pill
+        Tween(OpenPill, {Size = UDim2.new(0, 0, 0, 32), BackgroundTransparency = 1}, 0.18)
+        task.delay(0.16, function()
+            OpenPill.Visible = false
+            Main.Visible     = true
+            Shadow.Visible   = true
+            -- Restore position but start from above, scroll down
+            Main.Position   = UDim2.new(savedPos.X.Scale, savedPos.X.Offset, 0, savedPos.Y.Offset - 60)
+            Main.Size       = UDim2.new(0, 578, 0, 0)
+            Shadow.BackgroundTransparency = 0.55
+            Tween(Main, {Position = savedPos, Size = UDim2.new(0, 578, 0, 418)},
+                  0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        end)
+    end
+
     MinBtn.MouseEnter:Connect(function() Tween(MinBtn, {BackgroundColor3 = T.Border}, 0.15) end)
     MinBtn.MouseLeave:Connect(function() Tween(MinBtn, {BackgroundColor3 = T.SurfaceAlt}, 0.15) end)
     CloseBtn.MouseEnter:Connect(function() Tween(CloseBtn, {BackgroundColor3 = Color3.fromRGB(240, 70, 90)}, 0.15) end)
     CloseBtn.MouseLeave:Connect(function() Tween(CloseBtn, {BackgroundColor3 = T.Red}, 0.15) end)
 
-    local isOpen = true
+    -- Minimize = collapse to topbar only
+    local isMinimized = false
     MinBtn.MouseButton1Click:Connect(function()
-        isOpen = not isOpen
-        if isOpen then
-            Content.Visible = true
-            Tween(Main, {Size = UDim2.new(0, 578, 0, 418)}, 0.3)
-            Tween(Shadow, {Size = UDim2.new(0, 592, 0, 432)}, 0.3)
-            MinBtn.Text = "─"
-        else
+        isMinimized = not isMinimized
+        if isMinimized then
             Content.Visible = false
-            Tween(Main, {Size = UDim2.new(0, 578, 0, 52)}, 0.3)
-            Tween(Shadow, {Size = UDim2.new(0, 592, 0, 66)}, 0.3)
+            Tween(Main, {Size = UDim2.new(0, 578, 0, 52)}, 0.28, Enum.EasingStyle.Quart)
+            Tween(Shadow, {Size = UDim2.new(0, 592, 0, 66)}, 0.28)
             MinBtn.Text = "□"
+        else
+            Content.Visible = true
+            Tween(Main, {Size = UDim2.new(0, 578, 0, 418)}, 0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            Tween(Shadow, {Size = UDim2.new(0, 592, 0, 432)}, 0.28)
+            MinBtn.Text = "─"
         end
     end)
 
-    CloseBtn.MouseButton1Click:Connect(function()
-        Tween(Main, {BackgroundTransparency = 1, Size = UDim2.new(0, 578, 0, 0)}, 0.3)
-        Tween(Shadow, {BackgroundTransparency = 1}, 0.3)
-        task.delay(0.35, function() SG:Destroy() end)
-    end)
+    -- Close = scroll up → show Open UI pill
+    CloseBtn.MouseButton1Click:Connect(HideWindow)
+    OpenPill.MouseButton1Click:Connect(ShowWindow)
 
     -- ── Window Object ─────────────────────────────────────────────────────────
     local Window = { _tabs = {}, _activeTab = nil }
@@ -389,7 +488,7 @@ function SNUI:CreateWindow(config)
 
         -- Lock badge
         if tabLocked then
-            New("TextLabel", {
+            local lockBadge = New("TextLabel", {
                 Size              = UDim2.new(0, 18, 0, 16),
                 Position          = UDim2.new(1, -22, 0.5, -8),
                 BackgroundColor3  = T.SurfaceAlt,
@@ -401,7 +500,7 @@ function SNUI:CreateWindow(config)
                 ZIndex            = 6,
                 Parent            = TabBtn,
             })
-            Corner(_, 4)
+            Corner(lockBadge, 4)
         end
 
         -- Page (scrollable)
